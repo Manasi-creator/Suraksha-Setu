@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,12 +24,18 @@ import PatientSettings from "./pages/patient/PatientSettings";
 import DoctorHome from "./pages/doctor/DoctorHome";
 import DoctorProfile from "./pages/doctor/DoctorProfile";
 import DoctorPatients from "./pages/doctor/DoctorPatients";
-import DoctorChat from "./pages/doctor/DoctorChat";
-import { DoctorHistory, DoctorReports, DoctorAlerts, DoctorSettings } from "./pages/doctor/DoctorPlaceholders";
+import PatientDetail from "./pages/doctor/PatientDetail";
+import DoctorSettings from "./pages/doctor/DoctorSettings";
+import { DoctorHistory, DoctorReports, DoctorAlerts } from "./pages/doctor/DoctorPlaceholders";
 
 // Admin pages
 import AdminHome from "./pages/admin/AdminHome";
-import { AdminUsers, AdminMedicines, AdminLogs, AdminAnalytics, AdminFeedback, AdminSettings } from "./pages/admin/AdminPlaceholders";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminMedicines from "./pages/admin/AdminMedicines";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminFeedback from "./pages/admin/AdminFeedback";
+import AdminSystemSettings from "./pages/admin/AdminSystemSettings";
+import { AdminLogs } from "./pages/admin/AdminPlaceholders";
 
 import NotFound from "./pages/NotFound";
 
@@ -61,7 +67,7 @@ const App = () => (
             <Route path="/doctor/home" element={<DoctorHome />} />
             <Route path="/doctor/profile" element={<DoctorProfile />} />
             <Route path="/doctor/patients" element={<DoctorPatients />} />
-            <Route path="/doctor/chat" element={<DoctorChat />} />
+            <Route path="/doctor/patients/:patientId" element={<PatientDetail />} />
             <Route path="/doctor/history" element={<DoctorHistory />} />
             <Route path="/doctor/reports" element={<DoctorReports />} />
             <Route path="/doctor/alerts" element={<DoctorAlerts />} />
@@ -74,7 +80,7 @@ const App = () => (
             <Route path="/admin/logs" element={<AdminLogs />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/feedback" element={<AdminFeedback />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/settings" element={<AdminSystemSettings />} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>

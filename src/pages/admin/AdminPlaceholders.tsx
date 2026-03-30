@@ -1,4 +1,4 @@
-import { Users, Database, ScrollText, BarChart2, MessageSquareWarning, Settings2 } from "lucide-react";
+import { ScrollText } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import PageTransition from "@/components/PageTransition";
 import BackButton from "@/components/BackButton";
@@ -21,9 +21,4 @@ const Placeholder = ({ title, icon: Icon }: { title: string; icon: any }) => (
   </DashboardLayout>
 );
 
-export const AdminUsers = () => <Placeholder title="User Management" icon={Users} />;
-export const AdminMedicines = () => <Placeholder title="Medicine Database" icon={Database} />;
 export const AdminLogs = () => <Placeholder title="Audit Logs" icon={ScrollText} />;
-export const AdminAnalytics = () => <Placeholder title="Analytics" icon={BarChart2} />;
-export const AdminFeedback = () => <Placeholder title="Feedback Review" icon={MessageSquareWarning} />;
-export const AdminSettings = () => <Placeholder title="System Settings" icon={Settings2} />;
