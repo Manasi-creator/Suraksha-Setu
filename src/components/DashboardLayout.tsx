@@ -33,7 +33,6 @@ const doctorNav: NavItem[] = [
   { label: "Home", icon: LayoutDashboard, path: "/doctor/home" },
   { label: "Profile", icon: UserCircle, path: "/doctor/profile" },
   { label: "Patients", icon: Users, path: "/doctor/patients" },
-  { label: "AI Consult", icon: MessageCircle, path: "/doctor/chat" },
   { label: "History", icon: Clock, path: "/doctor/history" },
   { label: "Reports", icon: FileText, path: "/doctor/reports" },
   { label: "Alerts", icon: Bell, path: "/doctor/alerts", badge: 5 },

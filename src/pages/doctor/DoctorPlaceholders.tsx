@@ -1,14 +1,14 @@
-import { Clock, FileText, Bell, Settings } from "lucide-react";
+import { Clock, FileText, Bell } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import PageTransition from "@/components/PageTransition";
 import BackButton from "@/components/BackButton";
 
-const PlaceholderPage = ({ title, icon: Icon, role }: { title: string; icon: any; role: "doctor" | "patient" | "admin" }) => (
-  <DashboardLayout role={role}>
+const PlaceholderPage = ({ title, icon: Icon }: { title: string; icon: any }) => (
+  <DashboardLayout role="doctor">
     <PageTransition>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <BackButton to={`/${role}/home`} />
+          <BackButton to="/doctor/home" />
           <h1 className="text-2xl font-heading font-bold flex items-center gap-2"><Icon size={24} className="text-primary" /> {title}</h1>
         </div>
         <div className="text-center py-20 text-muted-foreground bg-card rounded-xl border border-border shadow-card">
@@ -21,7 +21,6 @@ const PlaceholderPage = ({ title, icon: Icon, role }: { title: string; icon: any
   </DashboardLayout>
 );
 
-export const DoctorHistory = () => <PlaceholderPage title="Interaction History" icon={Clock} role="doctor" />;
-export const DoctorReports = () => <PlaceholderPage title="Reports" icon={FileText} role="doctor" />;
-export const DoctorAlerts = () => <PlaceholderPage title="Alerts" icon={Bell} role="doctor" />;
-export const DoctorSettings = () => <PlaceholderPage title="Settings" icon={Settings} role="doctor" />;
+export const DoctorHistory = () => <PlaceholderPage title="Interaction History" icon={Clock} />;
+export const DoctorReports = () => <PlaceholderPage title="Reports" icon={FileText} />;
+export const DoctorAlerts = () => <PlaceholderPage title="Alerts" icon={Bell} />;
