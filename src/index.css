@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 60 33% 97%;
+    --foreground: 120 20% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 120 20% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 120 20% 15%;
+
+    --primary: 120 75% 23%;
+    --primary-foreground: 60 33% 97%;
+
+    --secondary: 45 95% 56%;
+    --secondary-foreground: 120 30% 12%;
+
+    --muted: 80 15% 92%;
+    --muted-foreground: 120 10% 45%;
+
+    --accent: 80 25% 90%;
+    --accent-foreground: 120 30% 18%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 80 15% 85%;
+    --input: 80 15% 85%;
+    --ring: 120 75% 23%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 120 75% 23%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 80 25% 92%;
+    --sidebar-accent-foreground: 120 30% 18%;
+    --sidebar-border: 80 15% 85%;
+    --sidebar-ring: 120 75% 23%;
+
+    /* Custom tokens */
+    --success: 120 60% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 30 30% 12%;
+    --safe: 120 60% 40%;
+    --caution: 38 92% 50%;
+    --avoid: 0 72% 51%;
+
+    --gradient-hero: linear-gradient(135deg, hsl(120 75% 23%) 0%, hsl(120 50% 35%) 50%, hsl(80 40% 45%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(45 95% 56%) 0%, hsl(38 90% 50%) 100%);
+    --shadow-card: 0 4px 24px -4px hsl(120 20% 15% / 0.08);
+    --shadow-card-hover: 0 12px 32px -8px hsl(120 20% 15% / 0.15);
+
+    --font-heading: 'Playfair Display', serif;
+    --font-body: 'Inter', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer utilities {
+  .heading-serif {
+    font-family: var(--font-heading);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-gold {
+    background: var(--gradient-gold);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-card-hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .severity-safe {
+    @apply border-l-4;
+    border-left-color: hsl(var(--safe));
+  }
+
+  .severity-caution {
+    @apply border-l-4;
+    border-left-color: hsl(var(--caution));
+  }
+
+  .severity-avoid {
+    @apply border-l-4;
+    border-left-color: hsl(var(--avoid));
+  }
+}
+
+/* Botanical background pattern */
+.botanical-bg {
+  background-image: 
+    radial-gradient(ellipse at 20% 80%, hsl(120 75% 23% / 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, hsl(45 95% 56% / 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, hsl(80 25% 90% / 0.3) 0%, transparent 70%);
+}
+
+/* Floating particles keyframes */
+@keyframes float-up {
+  0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.6; }
+  100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+}
+
+.leaf-particle {
+  animation: float-up linear infinite;
+}
+
+@keyframes dash-flow {
+  to { stroke-dashoffset: -20; }
+}
+
+.animate-dash {
+  animation: dash-flow 1s linear infinite;
+}
