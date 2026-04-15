@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   Home, UserCircle, Pill, MessageCircle, Bell, Clock, FileText, Settings, LogOut,
   Stethoscope, Users, LayoutDashboard, Database, ScrollText, BarChart2, MessageSquareWarning, Settings2,
-  ShieldCheck, HeartHandshake, Menu,
+  ShieldCheck, HeartHandshake, Menu, Sparkles,
 } from "lucide-react";
 import AppLogo from "@/components/AppLogo";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ const patientNav: NavItem[] = [
   { label: "Home", icon: Home, path: "/patient/home" },
   { label: "Profile", icon: UserCircle, path: "/patient/profile" },
   { label: "Medications", icon: Pill, path: "/patient/medications" },
+  { label: "Know Your Prakriti", icon: Sparkles, path: "/patient/prakriti" },
   { label: "AI Chat", icon: MessageCircle, path: "/patient/chat" },
   { label: "Alerts", icon: Bell, path: "/patient/alerts", badge: 3 },
   { label: "History", icon: Clock, path: "/patient/history" },

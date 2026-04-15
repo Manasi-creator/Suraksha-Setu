@@ -15,6 +15,7 @@ import PatientHome from "./pages/patient/PatientHome";
 import PatientProfile from "./pages/patient/PatientProfile";
 import PatientMedications from "./pages/patient/PatientMedications";
 import PatientChat from "./pages/patient/PatientChat";
+import PrakritiAssessment from "./pages/patient/PrakritiAssessment";
 import PatientAlerts from "./pages/patient/PatientAlerts";
 import PatientHistory from "./pages/patient/PatientHistory";
 import PatientReports from "./pages/patient/PatientReports";
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/patient/profile" element={<PatientProfile />} />
             <Route path="/patient/medications" element={<PatientMedications />} />
             <Route path="/patient/chat" element={<PatientChat />} />
+            <Route path="/patient/prakriti" element={<PrakritiAssessment />} />
             <Route path="/patient/alerts" element={<PatientAlerts />} />
             <Route path="/patient/history" element={<PatientHistory />} />
             <Route path="/patient/reports" element={<PatientReports />} />
