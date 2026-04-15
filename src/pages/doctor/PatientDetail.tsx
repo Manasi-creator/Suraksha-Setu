@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, UserCircle, Pill, MessageCircle, Clock, Bell, FileText, Plus, Trash2, Send, Mic, Flag, Lock, Download, Search, ChevronRight } from "lucide-react";
+import { ArrowLeft, UserCircle, Pill, MessageCircle, Clock, Bell, FileText, Plus, Trash2, Send, Mic, Flag, Lock, Download, Search, ChevronRight, Sparkles, ShieldCheck } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import PageTransition from "@/components/PageTransition";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -131,6 +131,24 @@ const PatientDetail = () => {
                     <p className="text-xs text-muted-foreground">{patient.profileCompletion}% complete</p>
                   </div>
                 )}
+
+                {/* Ayurvedic Profile - Prakriti */}
+                <div className="border-t border-border pt-5 space-y-3">
+                  <h3 className="font-heading font-semibold flex items-center gap-2 text-sm"><Sparkles size={16} className="text-secondary" /> Ayurvedic Profile</h3>
+                  {isRajesh ? (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge className="bg-primary/10 text-primary border-primary/30 border">Prakriti: Kapha</Badge>
+                        <Badge className="bg-avoid/10 text-avoid border-avoid/30 border"><ShieldCheck size={12} className="mr-1" /> Diabetes Risk: High</Badge>
+                        <Badge variant="outline" className="text-xs">Confidence: 89%</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Determined via full-body video analysis on 10 Apr 2025</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm italic text-muted-foreground">Prakriti assessment not yet completed</p>
+                  )}
+                </div>
+
                 <p className="text-xs text-muted-foreground">Basic info added by doctor on {patient.dateJoined}</p>
               </div>
             </TabsContent>
@@ -181,18 +199,27 @@ const PatientDetail = () => {
             {/* Tab 3: AI Chat */}
             <TabsContent value="chat">
               <div className="bg-card rounded-xl border border-border shadow-card flex flex-col" style={{ height: "600px" }}>
-                <div className="bg-primary/5 border-b border-border px-4 py-3 rounded-t-xl">
+                <div className="bg-primary/5 border-b border-border px-4 py-3 rounded-t-xl space-y-2">
                   <p className="text-sm text-primary">AI is pre-loaded with {patient.name}'s current medications. Ask about any interaction, dosage concern, or safe alternative.</p>
+                  {isRajesh ? (
+                    <p className="text-xs font-medium text-primary/80 flex items-center gap-1"><Sparkles size={12} /> AI is aware of {patient.name}'s Prakriti: <Badge className="bg-primary/10 text-primary border-0 text-xs ml-1">Kapha</Badge> and Diabetes Risk: <Badge className="bg-avoid/10 text-avoid border-0 text-xs ml-1">High</Badge></p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">Prakriti data not available for this patient</p>
+                  )}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {isRajesh && (
                     <>
                       <div className="flex justify-end"><div className="bg-primary text-primary-foreground rounded-2xl rounded-br-md px-4 py-2 max-w-xs text-sm">Is it safe for Rajesh to continue Karela juice with Metformin 500mg twice daily?</div></div>
                       <div className="flex gap-3">
-                        <div className="w-8 h-8 shrink-0 rounded-full bg-primary/10 flex items-center justify-center"><MessageCircle size={14} className="text-primary" /></div>
+                         <div className="w-8 h-8 shrink-0 rounded-full bg-primary/10 flex items-center justify-center"><MessageCircle size={14} className="text-primary" /></div>
                         <div className="bg-muted/50 rounded-2xl rounded-bl-md p-4 max-w-md space-y-3 severity-caution">
-                          <Badge className="bg-secondary/20 text-secondary-foreground border-secondary/30">CAUTION</Badge>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge className="bg-secondary/20 text-secondary-foreground border-secondary/30">CAUTION</Badge>
+                            <Badge variant="outline" className="text-xs bg-primary/5 text-primary">Assessed for: Kapha type</Badge>
+                          </div>
                           <p className="text-sm">Both Metformin and Karela juice lower blood sugar through different mechanisms — Metformin via AMPK pathway, Karela via charantin and polypeptide-P. Combined use may cause additive hypoglycaemic effect, especially if Karela juice is consumed in concentrated form (&gt;150ml). Recommend monitoring fasting blood sugar daily and reducing Karela to 100ml if values drop below 90 mg/dL.</p>
+                          <p className="text-sm text-muted-foreground">Additionally, Rajesh's Kapha Prakriti means slower gastrointestinal motility, which may increase absorption of Karela compounds, amplifying the hypoglycaemic effect beyond what is seen in average patients.</p>
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="outline" className="text-xs">Confidence: 78%</Badge>
                             <Badge variant="outline" className="text-xs">Based on 9 clinical studies and molecular docking data</Badge>
@@ -231,7 +258,7 @@ const PatientDetail = () => {
                   <div className="overflow-auto">
                     <Table>
                       <TableHeader><TableRow>
-                        <TableHead>Date</TableHead><TableHead>Modern Drug</TableHead><TableHead>Ayurvedic</TableHead><TableHead>Result</TableHead><TableHead className="hidden md:table-cell">Checked By</TableHead><TableHead>Actions</TableHead>
+                         <TableHead>Date</TableHead><TableHead>Modern Drug</TableHead><TableHead>Ayurvedic</TableHead><TableHead>Prakriti</TableHead><TableHead>Result</TableHead><TableHead className="hidden md:table-cell">Checked By</TableHead><TableHead>Actions</TableHead>
                       </TableRow></TableHeader>
                       <TableBody>
                         {rajeshHistory.map((h, i) => (
@@ -239,6 +266,7 @@ const PatientDetail = () => {
                             <TableCell className="text-sm">{h.date}</TableCell>
                             <TableCell className="text-sm">{h.modernDrug}</TableCell>
                             <TableCell className="text-sm">{h.ayurvedic}</TableCell>
+                            <TableCell><Badge variant="outline" className="text-xs bg-primary/5 text-primary">Kapha</Badge></TableCell>
                             <TableCell><Badge className={severityColor(h.result)}>{h.result}</Badge></TableCell>
                             <TableCell className="hidden md:table-cell text-sm">{h.checkedBy}</TableCell>
                             <TableCell>
