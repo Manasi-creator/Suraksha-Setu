@@ -188,7 +188,7 @@ const PatientChat = () => {
 
       const aiMsg: Message = { id: Date.now() + 1, from: "ai", text: responseText, severity };
       setMessages((prev) => [...prev, aiMsg]);
-      speak(responseText);
+      // Speaker button is now shown instead of auto-speaking
     }, 1500);
   };
 
@@ -271,7 +271,7 @@ const PatientChat = () => {
                   {msg.from === "ai" && (
                     <div className="flex items-center gap-2 mt-3">
                       <Button size="sm" variant="ghost" className="text-xs gap-1 h-7 px-2" onClick={() => speak(msg.text)}>
-                        <Volume2 size={12} /> Replay
+                        <Volume2 size={12} /> Listen
                       </Button>
                       {msg.severity === "avoid" && (
                         <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => toast.success("Alert saved!")}>
