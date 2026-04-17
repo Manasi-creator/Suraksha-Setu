@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -9,7 +9,7 @@ import {
 import AppLogo from "@/components/AppLogo";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useState } from "react";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface NavItem {
   label: string;
@@ -71,6 +71,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const navItems = role === "patient" ? patientNav : role === "doctor" ? doctorNav : adminNav;
   const RoleIcon = roleIcons[role];
@@ -78,6 +79,11 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const handleLogout = () => {
     toast.success("Logged out successfully");
     navigate("/");
+  };
+
+  const confirmLogout = () => {
+    setLogoutDialogOpen(false);
+    handleLogout();
   };
 
   return (
@@ -130,7 +136,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
               </div>
               <span className="text-sm font-medium text-foreground">{roleNames[role]}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive">
+            <Button variant="ghost" size="sm" onClick={() => setLogoutDialogOpen(true)} className="text-muted-foreground hover:text-destructive">
               <LogOut size={16} />
             </Button>
           </div>
@@ -169,7 +175,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
                 </Link>
               );
             })}
-            <button onClick={handleLogout} className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-destructive w-full">
+            <button onClick={() => setLogoutDialogOpen(true)} className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-destructive w-full">
               <LogOut size={16} /> Logout
             </button>
           </motion.div>
@@ -180,6 +186,15 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
       <main className="flex-1 max-w-[1400px] mx-auto w-full px-4 py-6">
         {children}
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <ConfirmDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        title="Confirm Logout"
+        description="Are you sure you want to log out? You will need to sign in again."
+        onConfirm={confirmLogout}
+      />
     </div>
   );
 };
