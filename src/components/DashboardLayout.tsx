@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -9,7 +9,7 @@ import {
 import AppLogo from "@/components/AppLogo";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useState } from "react";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 interface NavItem {
   label: string;
