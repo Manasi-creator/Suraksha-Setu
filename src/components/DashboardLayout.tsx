@@ -71,6 +71,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const navItems = role === "patient" ? patientNav : role === "doctor" ? doctorNav : adminNav;
   const RoleIcon = roleIcons[role];
@@ -78,6 +79,11 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const handleLogout = () => {
     toast.success("Logged out successfully");
     navigate("/");
+  };
+
+  const confirmLogout = () => {
+    setLogoutDialogOpen(false);
+    handleLogout();
   };
 
   return (
