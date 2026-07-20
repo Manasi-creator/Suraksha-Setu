@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { MessageCircle, Send, Mic, Leaf, Shield, AlertTriangle, XCircle, Volume2, VolumeX, Globe, Link as LinkIcon } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -11,20 +12,17 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
+interface PrakritiResult {
+  type: "Vata" | "Pitta" | "Kapha";
+  confidence: number;
+  diabetesRisk: "Low" | "Medium" | "High";
+}
+
 interface Message {
   id: number;
   from: "user" | "ai";
   text: string;
   severity?: "safe" | "caution" | "avoid";
-}
-
-interface AiAnalysisResponse {
-  summary: string;
-  confidence: number;
-  riskLevel: string;
-  verdict: string;
-  reasons: string[];
-  recommendations: string[];
 }
 
 const severityConfig = {
@@ -33,37 +31,164 @@ const severityConfig = {
   avoid: { label: "Avoid", icon: XCircle, color: "bg-avoid/10 text-avoid border-avoid/30" },
 };
 
-const quickPrompts = [
-  "Check my current medicines",
-  "Is Karela juice safe for me?",
-  "What should I avoid with Metformin?",
-];
+const prakritiBannerColors: Record<string, string> = {
+  Vata: "bg-blue-50 border-blue-200 text-blue-800",
+  Pitta: "bg-orange-50 border-orange-200 text-orange-800",
+  Kapha: "bg-primary/5 border-primary/20 text-primary",
+};
 
-const initialMessages: Message[] = [
-  { id: 1, from: "ai", text: "Hello Arjun! I'm your AI health assistant. I can help you understand potential interactions between your Ayurvedic and modern medicines. What would you like to know?", severity: "safe" },
-];
+const prakritiNotes: Record<string, Record<string, string>> = {
+  safe: {
+    Vata: "Your Vata constitution does not increase the risk here.",
+    Pitta: "Your Pitta constitution does not increase the risk here.",
+    Kapha: "Your Kapha constitution does not increase the risk here.",
+  },
+  caution: {
+    Vata: "Because you are Vata type, your nervous system may amplify side effects. Monitor carefully.",
+    Pitta: "Because you are Pitta type, your liver processes medicines faster — watch for reduced drug efficacy.",
+    Kapha: "Because you are Kapha type, your digestion is slower, which can increase absorption and accumulation.",
+  },
+  avoid: {
+    Vata: "This combination is risky for your Vata body type and can cause a dangerous reaction.",
+    Pitta: "This combination is risky for your Pitta body type and can cause a dangerous reaction.",
+    Kapha: "This combination is risky for your Kapha body type and can cause a dangerous reaction.",
+  },
+};
+
+const langMap: Record<string, string> = { en: "en-IN", hi: "hi-IN", mr: "mr-IN" };
 
 const PatientChat = () => {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [prakriti, setPrakriti] = useState<PrakritiResult | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [lang, setLang] = useState("en");
+  const recognitionRef = useRef<any>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("prakritiResult");
+      if (stored) setPrakriti(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    const prakritiName = prakriti?.type || "your";
+    setMessages([
+      {
+        id: 1,
+        from: "ai",
+        text: `Hello Arjun! I'm your AI health assistant${prakriti ? ` — I can see you have a ${prakritiName} constitution` : ""}. I can help you understand potential interactions between your Ayurvedic and modern medicines. What would you like to know?`,
+        severity: "safe",
+      },
+    ]);
+  }, [prakriti]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const quickPrompts = prakriti
+    ? [
+        `Is Karela juice safe for my ${prakriti.type} Prakriti?`,
+        "Can I take Metformin with Methi seeds?",
+        `What should a ${prakriti.type} person avoid?`,
+      ]
+    : [
+        "Check my current medicines",
+        "Is Karela juice safe for me?",
+        "What should I avoid with Metformin?",
+      ];
+
+  // --- Voice Input (Web Speech API) ---
+  const toggleListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = langMap[lang];
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results).map((r: any) => r[0].transcript).join("");
+      setInput(transcript);
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => {
+      setListening(false);
+      toast.error("Could not recognise speech. Try again.");
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+    toast.info("Listening...");
+
+    // auto-stop after 5s silence
+    setTimeout(() => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    }, 8000);
+  };
+
+  // --- Voice Output (SpeechSynthesis) ---
+  const speak = (text: string) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langMap[lang];
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
+  };
+
+  // --- Send message ---
   const sendMessage = (text: string) => {
     if (!text.trim()) return;
     const userMsg: Message = { id: Date.now(), from: "user", text };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    // Simulate AI response
     setTimeout(() => {
-      const severity = text.toLowerCase().includes("karela") ? "caution" : text.toLowerCase().includes("avoid") ? "avoid" : "safe";
-      const responses: Record<string, string> = {
-        safe: "Based on your current medication profile, this combination appears safe. No significant interactions were found. Continue as prescribed and monitor for any unusual symptoms.",
-        caution: "⚠️ Karela (bitter gourd) juice can lower blood sugar levels significantly. Combined with Metformin, this may increase the risk of hypoglycemia. Use with caution and monitor your blood sugar more frequently.",
-        avoid: "🚫 This combination has a high risk of adverse interaction. Glimepiride combined with certain herbal supplements can cause dangerous drops in blood sugar. Please consult your doctor before making any changes.",
-      };
-      const aiMsg: Message = { id: Date.now() + 1, from: "ai", text: responses[severity], severity };
+      const lower = text.toLowerCase();
+      const severity: "safe" | "caution" | "avoid" = lower.includes("avoid") || lower.includes("madhunashini")
+        ? "avoid"
+        : lower.includes("karela") || lower.includes("caution")
+          ? "caution"
+          : "safe";
+
+      const pType = prakriti?.type || "your";
+      let responseText: string;
+
+      if (severity === "safe") {
+        responseText = `Good news! For your ${pType} body type, this combination appears safe to take together. ${prakriti ? prakritiNotes.safe[pType] : ""} Continue as your doctor advised and watch for any unusual symptoms.`;
+      } else if (severity === "caution") {
+        responseText = `⚠️ Be careful! Karela juice can affect how Metformin works in your body. ${prakriti ? prakritiNotes.caution[pType] : "Combined use may increase the risk of hypoglycemia."} Monitor your blood sugar more often and tell your doctor.`;
+      } else {
+        responseText = `🚫 Do NOT take these together. ${prakriti ? prakritiNotes.avoid[pType] : "This combination has a high risk of adverse interaction."} Please speak to your doctor immediately before taking either medicine.`;
+      }
+
+      const aiMsg: Message = { id: Date.now() + 1, from: "ai", text: responseText, severity };
       setMessages((prev) => [...prev, aiMsg]);
+      // Speaker button is now shown instead of auto-speaking
     }, 1500);
   };
 
@@ -117,6 +242,7 @@ const PatientChat = () => {
             This AI checks potential interactions between your Ayurvedic and modern medicines. Always consult your doctor before making changes.
           </div>
 
+          {/* Chat messages */}
           <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {messages.map((msg) => (
               <motion.div
@@ -130,7 +256,7 @@ const PatientChat = () => {
                     <Leaf size={14} className="text-primary-foreground" />
                   </div>
                 )}
-                <div className={`max-w-[70%] rounded-2xl p-4 whitespace-pre-line ${
+                <div className={`max-w-[70%] rounded-2xl p-4 ${
                   msg.from === "user"
                     ? "bg-primary text-primary-foreground rounded-br-md"
                     : "bg-card border border-border shadow-sm rounded-bl-md"
@@ -142,10 +268,17 @@ const PatientChat = () => {
                     </Badge>
                   )}
                   <p className="text-sm leading-relaxed">{msg.text}</p>
-                  {msg.severity === "avoid" && msg.from === "ai" && (
-                    <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={() => toast.success("Alert saved!")}>
-                      Save as Alert
-                    </Button>
+                  {msg.from === "ai" && (
+                    <div className="flex items-center gap-2 mt-3">
+                      <Button size="sm" variant="ghost" className="text-xs gap-1 h-7 px-2" onClick={() => speak(msg.text)}>
+                        <Volume2 size={12} /> Listen
+                      </Button>
+                      {msg.severity === "avoid" && (
+                        <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => toast.success("Alert saved!")}>
+                          Save as Alert
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               </motion.div>
@@ -153,6 +286,7 @@ const PatientChat = () => {
             <div ref={chatEndRef} />
           </div>
 
+          {/* Quick prompts */}
           <div className="flex gap-2 mb-3 flex-wrap">
             {quickPrompts.map((p) => (
               <button
@@ -165,6 +299,7 @@ const PatientChat = () => {
             ))}
           </div>
 
+          {/* Input */}
           <div className="flex gap-2">
             <Input
               value={input}
