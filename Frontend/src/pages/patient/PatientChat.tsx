@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { MessageCircle, Send, Mic, Leaf, Shield, AlertTriangle, XCircle } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -8,12 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Message {
   id: number;
   from: "user" | "ai";
   text: string;
   severity?: "safe" | "caution" | "avoid";
+}
+
+interface AiAnalysisResponse {
+  summary: string;
+  confidence: number;
+  riskLevel: string;
+  verdict: string;
+  reasons: string[];
+  recommendations: string[];
 }
 
 const severityConfig = {
@@ -28,32 +38,131 @@ const quickPrompts = [
   "What should I avoid with Metformin?",
 ];
 
-const initialMessages: Message[] = [
-  { id: 1, from: "ai", text: "Hello Arjun! I'm your AI health assistant. I can help you understand potential interactions between your Ayurvedic and modern medicines. What would you like to know?", severity: "safe" },
-];
+const modernKeywords = ["metformin", "glipizide", "glibenclamide", "insulin", "sitagliptin", "empagliflozin", "vildagliptin", "pioglitazone"];
+const ayurvedicKeywords = ["karela", "methi", "jamun", "gurmar", "neem", "vijaysar", "madhunashini", "chandraprabha", "triphala", "vasanta"];
+
+const formatAnalysisMessage = (result: AiAnalysisResponse) => {
+  const severity = result.verdict === "Unsafe" ? "avoid" : result.verdict === "Use with Caution" ? "caution" : "safe";
+  const reasons = result.reasons.length ? result.reasons.slice(0, 2).join("\n• ") : "No extra reasons were provided.";
+  const recommendations = result.recommendations.length ? result.recommendations.slice(0, 2).join("\n• ") : "Please ask a doctor if you are unsure.";
+  return [
+    result.summary,
+    `Confidence: ${result.confidence}%`,
+    `Risk level: ${result.riskLevel}`,
+    `Why it matters:\n• ${reasons}`,
+    `What to do:\n• ${recommendations}`
+  ].join("\n\n");
+};
 
 const PatientChat = () => {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const { user, fetchWithAuth } = useAuth();
+  const [messages, setMessages] = useState<Message[]>([
+    { id: 1, from: "ai", text: `Hello ${user?.name || "Arjun"}! I'm your AI health assistant. I can help you understand potential interactions between your Ayurvedic and modern medicines. What would you like to know?`, severity: "safe" },
+  ]);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
 
-  const sendMessage = (text: string) => {
-    if (!text.trim()) return;
+  const handleSaveAlert = async (messageText: string, severityLabel: string) => {
+    if (!user) return;
+    try {
+      const res = await fetchWithAuth(`/api/alerts/patient/${user.id}`, {
+        method: "POST",
+        body: JSON.stringify({
+          severity: severityLabel === "avoid" ? "High Risk" : severityLabel === "caution" ? "Caution" : "Info",
+          message: messageText,
+          sentBy: "AI System"
+        })
+      });
+      if (res.ok) {
+        toast.success("Alert saved to your profile!");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save alert");
+    }
+  };
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || !user) return;
     const userMsg: Message = { id: Date.now(), from: "user", text };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    // Simulate AI response
-    setTimeout(() => {
-      const severity = text.toLowerCase().includes("karela") ? "caution" : text.toLowerCase().includes("avoid") ? "avoid" : "safe";
-      const responses: Record<string, string> = {
-        safe: "Based on your current medication profile, this combination appears safe. No significant interactions were found. Continue as prescribed and monitor for any unusual symptoms.",
-        caution: "⚠️ Karela (bitter gourd) juice can lower blood sugar levels significantly. Combined with Metformin, this may increase the risk of hypoglycemia. Use with caution and monitor your blood sugar more frequently.",
-        avoid: "🚫 This combination has a high risk of adverse interaction. Glimepiride combined with certain herbal supplements can cause dangerous drops in blood sugar. Please consult your doctor before making any changes.",
-      };
-      const aiMsg: Message = { id: Date.now() + 1, from: "ai", text: responses[severity], severity };
-      setMessages((prev) => [...prev, aiMsg]);
-    }, 1500);
+    try {
+      const lowerText = text.toLowerCase();
+      const isProfileCheck = lowerText.includes("current medicines") || lowerText.includes("check my medicines");
+
+      if (isProfileCheck) {
+        const medsRes = await fetchWithAuth(`/api/medications/patient/${user.id}`);
+        if (!medsRes.ok) throw new Error("Unable to read medicines");
+        const medsData = await medsRes.json();
+        const modernMeds = medsData.filter((m: any) => m.type === "modern").map((m: any) => m.medicine);
+        const ayurvedicMeds = medsData.filter((m: any) => m.type === "ayurvedic").map((m: any) => m.medicine);
+
+        if (modernMeds.length > 0 && ayurvedicMeds.length > 0) {
+          const res = await fetchWithAuth(`/api/ai/analyze`, {
+            method: "POST",
+            body: JSON.stringify({
+              modernMedicine: modernMeds[0],
+              ayurvedicMedicine: ayurvedicMeds[0],
+              context: `Patient profile check for ${user.name}`
+            })
+          });
+          if (!res.ok) throw new Error("AI analysis failed");
+          const analysis: AiAnalysisResponse = await res.json();
+          setMessages((prev) => [...prev, {
+            id: Date.now() + 1,
+            from: "ai",
+            text: formatAnalysisMessage(analysis),
+            severity: analysis.verdict === "Unsafe" ? "avoid" : analysis.verdict === "Use with Caution" ? "caution" : "safe"
+          }]);
+        } else {
+          setMessages((prev) => [...prev, {
+            id: Date.now() + 1,
+            from: "ai",
+            text: "I could not find enough medicine information to run an AI check. Please add your medicines first.",
+            severity: "safe"
+          }]);
+        }
+      } else {
+        const foundModern = modernKeywords.find((k) => lowerText.includes(k));
+        const foundAyur = ayurvedicKeywords.find((k) => lowerText.includes(k));
+
+        if (foundModern && foundAyur) {
+          const res = await fetchWithAuth(`/api/ai/analyze`, {
+            method: "POST",
+            body: JSON.stringify({
+              modernMedicine: foundModern,
+              ayurvedicMedicine: foundAyur,
+              context: text
+            })
+          });
+
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.message || "AI analysis failed");
+          }
+
+          const analysis: AiAnalysisResponse = await res.json();
+          setMessages((prev) => [...prev, {
+            id: Date.now() + 1,
+            from: "ai",
+            text: formatAnalysisMessage(analysis),
+            severity: analysis.verdict === "Unsafe" ? "avoid" : analysis.verdict === "Use with Caution" ? "caution" : "safe"
+          }]);
+        } else {
+          setMessages((prev) => [...prev, {
+            id: Date.now() + 1,
+            from: "ai",
+            text: "I can check specific combinations for you. Please mention both a modern drug and an Ayurvedic herb in your query.",
+            severity: "safe"
+          }]);
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Error communicating with the AI checker backend");
+    }
   };
 
   return (
@@ -72,7 +181,6 @@ const PatientChat = () => {
             This AI checks potential interactions between your Ayurvedic and modern medicines. Always consult your doctor before making changes.
           </div>
 
-          {/* Chat messages */}
           <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {messages.map((msg) => (
               <motion.div
@@ -86,7 +194,7 @@ const PatientChat = () => {
                     <Leaf size={14} className="text-primary-foreground" />
                   </div>
                 )}
-                <div className={`max-w-[70%] rounded-2xl p-4 ${
+                <div className={`max-w-[70%] rounded-2xl p-4 whitespace-pre-line ${
                   msg.from === "user"
                     ? "bg-primary text-primary-foreground rounded-br-md"
                     : "bg-card border border-border shadow-sm rounded-bl-md"
@@ -98,8 +206,13 @@ const PatientChat = () => {
                     </Badge>
                   )}
                   <p className="text-sm leading-relaxed">{msg.text}</p>
-                  {msg.severity === "avoid" && msg.from === "ai" && (
-                    <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={() => toast.success("Alert saved!")}>
+                  {(msg.severity === "avoid" || msg.severity === "caution") && msg.from === "ai" && (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-3 text-xs" 
+                      onClick={() => handleSaveAlert(msg.text, msg.severity || "caution")}
+                    >
                       Save as Alert
                     </Button>
                   )}
@@ -108,7 +221,6 @@ const PatientChat = () => {
             ))}
           </div>
 
-          {/* Quick prompts */}
           <div className="flex gap-2 mb-3 flex-wrap">
             {quickPrompts.map((p) => (
               <button
@@ -121,7 +233,6 @@ const PatientChat = () => {
             ))}
           </div>
 
-          {/* Input */}
           <div className="flex gap-2">
             <Input
               value={input}
@@ -148,8 +259,5 @@ const PatientChat = () => {
     </DashboardLayout>
   );
 };
-
-// Need to import React for createElement
-import React from "react";
 
 export default PatientChat;

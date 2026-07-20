@@ -10,6 +10,7 @@ import AppLogo from "@/components/AppLogo";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NavItem {
   label: string;
@@ -56,9 +57,9 @@ const roleIcons: Record<string, any> = {
 };
 
 const roleNames: Record<string, string> = {
-  patient: "Arjun Sharma",
-  doctor: "Dr. Priya Mehta",
-  admin: "System Admin",
+  patient: "Patient",
+  doctor: "Doctor",
+  admin: "Admin",
 };
 
 interface DashboardLayoutProps {
@@ -70,12 +71,13 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   const navItems = role === "patient" ? patientNav : role === "doctor" ? doctorNav : adminNav;
   const RoleIcon = roleIcons[role];
 
   const handleLogout = () => {
-    toast.success("Logged out successfully");
+    logout();
     navigate("/");
   };
 
@@ -127,7 +129,7 @@ const DashboardLayout = ({ children, role }: DashboardLayoutProps) => {
               <div className="w-8 h-8 rounded-full gradient-hero flex items-center justify-center">
                 <RoleIcon className="text-primary-foreground" size={14} />
               </div>
-              <span className="text-sm font-medium text-foreground">{roleNames[role]}</span>
+              <span className="text-sm font-medium text-foreground">{user?.name || roleNames[role]}</span>
             </div>
             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive">
               <LogOut size={16} />

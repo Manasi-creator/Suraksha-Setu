@@ -1,40 +1,54 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Users, Stethoscope, Activity, AlertTriangle, TrendingUp } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import PageTransition from "@/components/PageTransition";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { useAuth } from "@/hooks/useAuth";
 
-const stats = [
-  { label: "Total Doctors", value: "12", icon: Stethoscope, color: "bg-primary/10 text-primary" },
-  { label: "Total Patients", value: "156", icon: Users, color: "bg-secondary/30 text-secondary-foreground" },
-  { label: "Interaction Checks", value: "1,247", icon: Activity, color: "bg-safe/10 text-safe" },
-  { label: "High Risk Today", value: "8", icon: AlertTriangle, color: "bg-avoid/10 text-avoid" },
-];
+const AdminHome = () => {
+  const { fetchWithAuth } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(null);
 
-const lineData = Array.from({ length: 30 }, (_, i) => ({
-  day: i + 1,
-  checks: Math.floor(20 + Math.random() * 40),
-}));
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetchWithAuth("/api/admin/dashboard");
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [fetchWithAuth]);
 
-const pieData = [
-  { name: "Safe", value: 65, color: "hsl(120, 60%, 40%)" },
-  { name: "Caution", value: 25, color: "hsl(38, 92%, 50%)" },
-  { name: "Avoid", value: 10, color: "hsl(0, 72%, 51%)" },
-];
+  const stats = data ? [
+    { label: "Total Doctors", value: data.stats.totalDoctors, icon: Stethoscope, color: "bg-primary/10 text-primary" },
+    { label: "Total Patients", value: data.stats.totalPatients, icon: Users, color: "bg-secondary/30 text-secondary-foreground" },
+    { label: "Interaction Checks", value: data.stats.totalChecks, icon: Activity, color: "bg-safe/10 text-safe" },
+    { label: "High Risk Today", value: data.stats.highRiskToday, icon: AlertTriangle, color: "bg-avoid/10 text-avoid" },
+  ] : [
+    { label: "Total Doctors", value: "-", icon: Stethoscope, color: "bg-primary/10 text-primary" },
+    { label: "Total Patients", value: "-", icon: Users, color: "bg-secondary/30 text-secondary-foreground" },
+    { label: "Interaction Checks", value: "-", icon: Activity, color: "bg-safe/10 text-safe" },
+    { label: "High Risk Today", value: "-", icon: AlertTriangle, color: "bg-avoid/10 text-avoid" },
+  ];
 
-const recentActivity = [
-  { text: "Dr. Priya ran interaction check for Meera Patel", time: "10 min ago" },
-  { text: "New patient registered: Kavita Singh", time: "1h ago" },
-  { text: "High-risk flag: Karela + Glimepiride for Sunita Devi", time: "2h ago" },
-  { text: "Dr. Amit generated a report for Ravi Kumar", time: "3h ago" },
-  { text: "New doctor registered: Dr. Suresh Nair", time: "5h ago" },
-];
+  const pieData = data?.pieData || [];
+  const lineData = data?.lineData || [];
+  const recentActivity = data?.recentActivity || [];
 
-const AdminHome = () => (
-  <DashboardLayout role="admin">
-    <PageTransition>
-      <div className="space-y-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="botanical-bg rounded-2xl p-8 border border-border">
+  return (
+    <DashboardLayout role="admin">
+      <PageTransition>
+        <div className="space-y-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="botanical-bg rounded-2xl p-8 border border-border">
           <h1 className="text-3xl font-heading font-bold">System Overview 🔒</h1>
           <p className="text-muted-foreground mt-1">Monitor platform health and activity</p>
         </motion.div>
@@ -109,6 +123,7 @@ const AdminHome = () => (
       </div>
     </PageTransition>
   </DashboardLayout>
-);
+  );
+};
 
 export default AdminHome;

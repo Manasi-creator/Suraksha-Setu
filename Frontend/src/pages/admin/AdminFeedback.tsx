@@ -1,30 +1,68 @@
-import { useState } from "react";
-import { MessageSquareWarning, Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { MessageSquareWarning } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import PageTransition from "@/components/PageTransition";
 import BackButton from "@/components/BackButton";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { mockFeedback, type FeedbackEntry } from "@/data/mockData";
+import { useAuth } from "@/hooks/useAuth";
+
+interface FeedbackEntry {
+  _id: string;
+  doctor: string;
+  patient: string;
+  drugsChecked: string;
+  aiResult: string;
+  assessment: "Correct" | "Partially Correct" | "Incorrect";
+  note: string;
+  status: "Pending" | "Reviewed" | "Escalated";
+  date: string;
+}
 
 const AdminFeedback = () => {
-  const [feedback, setFeedback] = useState<FeedbackEntry[]>(mockFeedback);
+  const { user, fetchWithAuth } = useAuth();
+  const [feedback, setFeedback] = useState<FeedbackEntry[]>([]);
   const [statusFilter, setStatusFilter] = useState("All");
   const [doctorFilter, setDoctorFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
 
-  const filtered = feedback.filter(f => {
-    if (statusFilter !== "All" && f.status !== statusFilter) return false;
-    if (doctorFilter !== "All" && f.doctor !== doctorFilter) return false;
-    return true;
-  });
+  const fetchFeedback = async () => {
+    try {
+      const res = await fetchWithAuth("/api/feedback");
+      if (res.ok) {
+        const data = await res.json();
+        setFeedback(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const markReviewed = (id: string) => {
-    setFeedback(prev => prev.map(f => f.id === id ? { ...f, status: "Reviewed" as const } : f));
-    toast.success("Feedback marked as reviewed");
+  useEffect(() => {
+    fetchFeedback();
+  }, [user]);
+
+  const updateStatus = async (id: string, newStatus: "Reviewed" | "Escalated") => {
+    try {
+      const res = await fetchWithAuth(`/api/feedback/${id}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        toast.success(`Feedback marked as ${newStatus.toLowerCase()}`);
+        setFeedback(prev => prev.map(f => f._id === id ? { ...f, status: newStatus } : f));
+      } else {
+        toast.error("Failed to update status");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error connecting to server");
+    }
   };
 
   const statusBadge = (s: string) => {
@@ -33,7 +71,13 @@ const AdminFeedback = () => {
     return <Badge className="bg-secondary/20 text-secondary-foreground border-secondary/30">Pending</Badge>;
   };
 
-  const doctors = [...new Set(mockFeedback.map(f => f.doctor))];
+  const doctors = [...new Set(feedback.map(f => f.doctor))];
+
+  const filtered = feedback.filter(f => {
+    if (statusFilter !== "All" && f.status !== statusFilter) return false;
+    if (doctorFilter !== "All" && f.doctor !== doctorFilter) return false;
+    return true;
+  });
 
   return (
     <DashboardLayout role="admin">
@@ -63,52 +107,71 @@ const AdminFeedback = () => {
             </Select>
           </div>
 
-          <div className="bg-card rounded-xl border border-border shadow-card overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Doctor</TableHead>
-                  <TableHead className="hidden md:table-cell">Patient</TableHead>
-                  <TableHead className="hidden lg:table-cell">Drugs Checked</TableHead>
-                  <TableHead>AI Result</TableHead>
-                  <TableHead className="hidden md:table-cell">Assessment</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map(f => (
-                  <TableRow key={f.id}>
-                    <TableCell className="text-sm">{f.date}</TableCell>
-                    <TableCell className="text-sm font-medium">{f.doctor}</TableCell>
-                    <TableCell className="hidden md:table-cell text-sm">{f.patient}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{f.drugsChecked}</TableCell>
-                    <TableCell>
-                      <Badge className={f.aiResult === "Avoid" ? "bg-avoid/10 text-avoid" : f.aiResult === "Caution" ? "bg-secondary/20 text-secondary-foreground" : "bg-safe/10 text-safe"}>{f.aiResult}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm">{f.assessment}</TableCell>
-                    <TableCell>{statusBadge(f.status)}</TableCell>
-                    <TableCell>
-                      {f.status === "Pending" && (
-                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => markReviewed(f.id)}>Mark Reviewed</Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Expanded notes */}
-          <div className="space-y-3">
-            {filtered.map(f => (
-              <div key={f.id} className="bg-card rounded-lg border border-border p-4">
-                <p className="text-sm font-medium mb-1">{f.doctor} on {f.patient}</p>
-                <p className="text-sm text-muted-foreground italic">"{f.note}"</p>
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Loading feedback list...</div>
+          ) : (
+            <>
+              <div className="bg-card rounded-xl border border-border shadow-card overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Doctor</TableHead>
+                      <TableHead className="hidden md:table-cell">Patient</TableHead>
+                      <TableHead className="hidden lg:table-cell">Drugs Checked</TableHead>
+                      <TableHead>AI Result</TableHead>
+                      <TableHead className="hidden md:table-cell">Assessment</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map(f => (
+                      <TableRow key={f._id}>
+                        <TableCell className="text-sm">{new Date(f.date).toLocaleDateString("en-IN")}</TableCell>
+                        <TableCell className="text-sm font-medium">{f.doctor}</TableCell>
+                        <TableCell className="hidden md:table-cell text-sm">{f.patient}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{f.drugsChecked}</TableCell>
+                        <TableCell>
+                          <Badge className={f.aiResult === "Avoid" ? "bg-avoid/10 text-avoid border-avoid/30" : f.aiResult === "Caution" ? "bg-secondary/20 text-secondary-foreground border-secondary/30" : "bg-safe/10 text-safe border-safe/30"}>{f.aiResult}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-sm">{f.assessment}</TableCell>
+                        <TableCell>{statusBadge(f.status)}</TableCell>
+                        <TableCell>
+                          {f.status === "Pending" && (
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="ghost" className="text-xs text-primary" onClick={() => updateStatus(f._id, "Reviewed")}>Mark Reviewed</Button>
+                              <Button size="sm" variant="ghost" className="text-xs text-avoid" onClick={() => updateStatus(f._id, "Escalated")}>Escalate</Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filtered.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No feedback reports found matching these filters.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
-            ))}
-          </div>
+
+              {/* Expanded notes */}
+              <div className="space-y-3">
+                <h3 className="font-heading font-semibold text-lg">Detailed Doctor Comments</h3>
+                {filtered.map(f => (
+                  <div key={f._id} className="bg-card rounded-lg border border-border p-4 shadow-sm">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-sm font-semibold">{f.doctor} regarding interaction assessment</p>
+                      <span className="text-xs text-muted-foreground">{new Date(f.date).toLocaleDateString("en-IN")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">Prescription: {f.drugsChecked} • AI Result: {f.aiResult} • Assessment: {f.assessment}</p>
+                    <p className="text-sm text-foreground italic bg-muted/40 p-3 rounded border border-border">"{f.note}"</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </PageTransition>
     </DashboardLayout>

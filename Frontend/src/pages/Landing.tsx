@@ -48,9 +48,6 @@ const Landing = () => {
             <div className="flex items-center gap-4">
               <a href="#features" className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground transition-colors">About</a>
               <a href="#contact" className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground transition-colors">Contact</a>
-              <Button size="sm" onClick={() => navigate("/login/doctor")} className="gap-1.5">
-                <LogIn size={14} /> Login
-              </Button>
             </div>
           </div>
         </header>

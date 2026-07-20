@@ -21,4 +21,3 @@ const Placeholder = ({ title, icon: Icon }: { title: string; icon: any }) => (
   </DashboardLayout>
 );
 
-export const AdminLogs = () => <Placeholder title="Audit Logs" icon={ScrollText} />;

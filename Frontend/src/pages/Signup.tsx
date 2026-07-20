@@ -2,8 +2,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
-  User, Users, Calendar, Building2, MapPin, Phone, PhoneCall, Mail, Lock,
-  Stethoscope, HeartHandshake, ArrowLeft, CheckCircle2,
+  User, Users, Mail, Lock,
+  Stethoscope, HeartHandshake, ArrowLeft, CheckCircle2, Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,23 +13,43 @@ import AppLogo from "@/components/AppLogo";
 import FloatingLeaves from "@/components/FloatingLeaves";
 import PageTransition from "@/components/PageTransition";
 import { toast } from "sonner";
+import { useAuth } from "../hooks/useAuth";
 
 const Signup = () => {
   const { role = "patient" } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [name, setName] = useState("");
+  const [gender, setGender] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const { signup } = useAuth();
+
   const isDoctor = role === "doctor";
   const Icon = isDoctor ? Stethoscope : HeartHandshake;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const result = await signup({
+      name,
+      email,
+      password,
+      role,
+      gender,
+      phone
+    });
+    setLoading(false);
+    if (result) {
       setSuccess(true);
-      toast.success("Account created!", { description: "Awaiting verification." });
-    }, 1500);
+    }
   };
 
   if (success) {
@@ -51,7 +71,7 @@ const Signup = () => {
               <CheckCircle2 className="text-primary" size={48} />
             </motion.div>
             <h2 className="text-3xl font-heading font-bold text-foreground mb-2">Account Created!</h2>
-            <p className="text-muted-foreground mb-8">Awaiting verification. You'll be notified once approved.</p>
+            <p className="text-muted-foreground mb-8">You can now sign in using your credentials.</p>
             <Button onClick={() => navigate(`/login/${role}`)}>Go to Login</Button>
           </motion.div>
         </div>
@@ -90,57 +110,66 @@ const Signup = () => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm"><User size={14} /> Full Name</Label>
-                  <Input placeholder="Enter your full name" required />
+                  <Input 
+                    placeholder="Enter your full name" 
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    required 
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm"><Users size={14} /> Gender</Label>
-                  <Select required>
+                  <Select value={gender} onValueChange={setGender} required>
                     <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="transgender">Transgender</SelectItem>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Transgender">Transgender</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {isDoctor && (
-                  <>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm"><Calendar size={14} /> Age</Label>
-                      <Input type="number" placeholder="Age" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm"><Building2 size={14} /> Clinic Name</Label>
-                      <Input placeholder="Clinic name" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm"><MapPin size={14} /> Clinic Address</Label>
-                      <Input placeholder="Full address" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 text-sm"><PhoneCall size={14} /> Alt Phone</Label>
-                      <Input type="tel" placeholder="Alternative phone" />
-                    </div>
-                  </>
-                )}
-
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm"><Phone size={14} /> Phone Number</Label>
-                  <Input type="tel" placeholder="Phone number" required />
+                  <Input 
+                    type="tel" 
+                    placeholder="Phone number" 
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    required 
+                  />
                 </div>
+
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm"><Mail size={14} /> Email</Label>
-                  <Input type="email" placeholder="you@example.com" required />
+                  <Input 
+                    type="email" 
+                    placeholder="you@example.com" 
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm"><Lock size={14} /> Password</Label>
-                  <Input type="password" placeholder="••••••••" required />
+                  <Input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm"><Lock size={14} /> Confirm Password</Label>
-                  <Input type="password" placeholder="••••••••" required />
+                  <Input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    required 
+                  />
                 </div>
 
                 {!isDoctor && (

@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { UserCircle, Calendar, Ruler, Weight, ArrowLeft } from "lucide-react";
+import { UserCircle, Calendar, Ruler, Weight, Lock } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import PageTransition from "@/components/PageTransition";
 import BackButton from "@/components/BackButton";
@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/useAuth";
 
 const LockedField = ({ label, value, icon: Icon }: { label: string; value: string; icon: any }) => (
   <div className="space-y-2">
@@ -27,9 +27,33 @@ const LockedField = ({ label, value, icon: Icon }: { label: string; value: strin
 );
 
 const PatientProfile = () => {
-  const [age, setAge] = useState("28");
-  const [height, setHeight] = useState("175");
-  const [weight, setWeight] = useState("72");
+  const { user, fetchWithAuth } = useAuth();
+  const [age, setAge] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [patientData, setPatientData] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchProfile = async () => {
+      try {
+        const res = await fetchWithAuth(`/api/patients/${user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPatientData(data);
+          setAge(data.age ? String(data.age) : "");
+          setHeight(data.height ? String(data.height) : "");
+          setWeight(data.weight ? String(data.weight) : "");
+        }
+      } catch (err) {
+        console.error("Error fetching patient profile:", err);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
 
   const bmi = useMemo(() => {
     const h = parseFloat(height) / 100;
@@ -47,6 +71,34 @@ const PatientProfile = () => {
     return { label: "Obese", color: "text-avoid", bg: "bg-avoid", pct: 90 };
   }, [bmi]);
 
+  const handleSaveChanges = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const res = await fetchWithAuth(`/api/patients/${user.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          age: age ? Number(age) : null,
+          height: height ? Number(height) : null,
+          weight: weight ? Number(weight) : null
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Profile saved successfully!");
+        setPatientData(data.profile);
+      } else {
+        toast.error(data.message || "Failed to update profile");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error updating profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <DashboardLayout role="patient">
       <PageTransition>
@@ -60,9 +112,9 @@ const PatientProfile = () => {
             <h3 className="font-heading font-semibold text-lg">Basic Information</h3>
             <p className="text-xs text-muted-foreground">Managed by your doctor</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <LockedField label="Patient ID" value="PT-2024-0042" icon={UserCircle} />
-              <LockedField label="Full Name" value="Arjun Sharma" icon={UserCircle} />
-              <LockedField label="Gender" value="Male" icon={UserCircle} />
+              <LockedField label="Patient ID" value={patientData?.id || user?.id || ""} icon={UserCircle} />
+              <LockedField label="Full Name" value={patientData?.name || user?.name || ""} icon={UserCircle} />
+              <LockedField label="Gender" value={patientData?.gender || "Not specified"} icon={UserCircle} />
             </div>
           </div>
 
@@ -103,7 +155,9 @@ const PatientProfile = () => {
               </motion.div>
             )}
 
-            <Button onClick={() => toast.success("Profile saved successfully!")} className="mt-4">Save Changes</Button>
+            <Button onClick={handleSaveChanges} disabled={saving} className="mt-4">
+              {saving ? "Saving Changes..." : "Save Changes"}
+            </Button>
           </div>
         </div>
       </PageTransition>

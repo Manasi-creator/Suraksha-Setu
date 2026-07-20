@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Users, Plus, Search, UserCircle } from "lucide-react";
+import { Users, Plus, Search, UserCircle, Phone, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import PageTransition from "@/components/PageTransition";
@@ -12,12 +12,110 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { mockPatients } from "@/data/mockData";
+import { useAuth } from "@/hooks/useAuth";
+
+interface PatientItem {
+  id: string;
+  name: string;
+  email: string;
+  assignedDoctor: string;
+  status: "Active" | "Inactive";
+  age?: number;
+  gender?: string;
+  height?: number;
+  weight?: number;
+  profileCompletion: number;
+  dateJoined: string;
+}
 
 const DoctorPatients = () => {
-  const [search, setSearch] = useState("");
+  const { user, fetchWithAuth } = useAuth();
   const navigate = useNavigate();
-  const patients = mockPatients.filter(p => p.assignedDoctor === "Dr. Priya Sharma" || true); // show all for demo
+  const [patients, setPatients] = useState<PatientItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  // Add Patient Form State
+  const [name, setName] = useState("");
+  const [gender, setGender] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [age, setAge] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchPatients = async () => {
+    try {
+      const res = await fetchWithAuth("/api/patients");
+      if (res.ok) {
+        const data = await res.json();
+        setPatients(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPatients();
+  }, [user]);
+
+  const handleAddPatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !email || !gender) {
+      toast.error("Please fill in name, email and gender");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Patients are registered via auth endpoint
+      const res = await fetch("/http://localhost:5000/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          password: "patient123", // default password
+          role: "patient",
+          gender,
+          phone,
+          age: age ? Number(age) : undefined,
+          height: height ? Number(height) : undefined,
+          weight: weight ? Number(weight) : undefined,
+          assignedDoctor: user?.name || "Dr. Priya Sharma"
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Patient ${name} added! Default password: patient123`);
+        setSheetOpen(false);
+        // Clear inputs
+        setName("");
+        setGender("");
+        setPhone("");
+        setEmail("");
+        setAge("");
+        setHeight("");
+        setWeight("");
+        // Reload list
+        fetchPatients();
+      } else {
+        toast.error(data.message || "Failed to register patient");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error creating patient profile");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filtered = patients.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -29,22 +127,55 @@ const DoctorPatients = () => {
               <BackButton to="/doctor/home" />
               <h1 className="text-2xl font-heading font-bold flex items-center gap-2"><Users size={24} className="text-primary" /> My Patients</h1>
             </div>
-            <Sheet>
+            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
               <SheetTrigger asChild>
                 <Button className="gradient-gold text-secondary-foreground font-semibold gap-2"><Plus size={16} /> Add New Patient</Button>
               </SheetTrigger>
-              <SheetContent>
+              <SheetContent className="overflow-y-auto">
                 <SheetHeader><SheetTitle>Add New Patient</SheetTitle></SheetHeader>
-                <div className="space-y-4 mt-6">
-                  <div className="space-y-2"><Label className="flex items-center gap-2"><UserCircle size={14} /> Full Name</Label><Input placeholder="Patient name" /></div>
-                  <div className="space-y-2"><Label>Gender</Label>
-                    <Select><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem><SelectItem value="transgender">Transgender</SelectItem></SelectContent></Select>
+                <form onSubmit={handleAddPatient} className="space-y-4 mt-6">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><UserCircle size={14} /> Full Name</Label>
+                    <Input placeholder="Patient name" value={name} onChange={e => setName(e.target.value)} required />
                   </div>
-                  <div className="space-y-2"><Label>Phone Number</Label><Input type="tel" placeholder="Phone" /></div>
-                  <div className="space-y-2"><Label>Email</Label><Input type="email" placeholder="Email" /></div>
-                  <p className="text-xs text-muted-foreground bg-accent/50 rounded-lg p-3">The patient will complete their profile after login.</p>
-                  <Button className="w-full" onClick={() => toast.success("Patient added. Login credentials sent to email.")}>Add Patient</Button>
-                </div>
+                  <div className="space-y-2">
+                    <Label>Gender</Label>
+                    <Select value={gender} onValueChange={setGender} required>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Transgender">Transgender</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><Phone size={14} /> Phone Number</Label>
+                    <Input type="tel" placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><Mail size={14} /> Email</Label>
+                    <Input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-2">
+                      <Label>Age</Label>
+                      <Input type="number" placeholder="Age" value={age} onChange={e => setAge(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ht (cm)</Label>
+                      <Input type="number" placeholder="Height" value={height} onChange={e => setHeight(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Wt (kg)</Label>
+                      <Input type="number" placeholder="Weight" value={weight} onChange={e => setWeight(e.target.value)} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground bg-accent/50 rounded-lg p-3">Default login password will be set to: <strong>patient123</strong>. Patient can change this later.</p>
+                  <Button type="submit" disabled={submitting} className="w-full">
+                    {submitting ? "Adding Patient..." : "Add Patient"}
+                  </Button>
+                </form>
               </SheetContent>
             </Sheet>
           </div>
@@ -54,34 +185,41 @@ const DoctorPatients = () => {
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search patients..." className="pl-9" />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((p, i) => (
-              <motion.div
-                key={p.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                whileHover={{ y: -4 }}
-                onClick={() => navigate(`/doctor/patients/${p.id}`)}
-                className="bg-card rounded-xl shadow-card border border-border p-5 cursor-pointer hover:border-primary/30 transition-colors"
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-                    {p.name.split(" ").map((n) => n[0]).join("")}
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Loading patients list...</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filtered.map((p, i) => (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  whileHover={{ y: -4 }}
+                  onClick={() => navigate(`/doctor/patients/${p.id}`)}
+                  className="bg-card rounded-xl shadow-card border border-border p-5 cursor-pointer hover:border-primary/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
+                      {p.name.split(" ").map((n) => n[0]).join("")}
+                    </div>
+                    <div>
+                      <h3 className="font-medium">{p.name}</h3>
+                      <p className="text-xs text-muted-foreground">{p.gender || "—"} {p.age ? `• Age ${p.age}` : ""}</p>
+                    </div>
+                    {p.status === "Inactive" && <Badge className="ml-auto bg-muted text-muted-foreground text-xs">Inactive</Badge>}
                   </div>
-                  <div>
-                    <h3 className="font-medium">{p.name}</h3>
-                    <p className="text-xs text-muted-foreground">{p.gender || "—"} {p.age ? `• Age ${p.age}` : ""}</p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{p.assignedDoctor}</span>
+                    <span>Joined: {new Date(p.dateJoined).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</span>
                   </div>
-                  {p.status === "Inactive" && <Badge className="ml-auto bg-muted text-muted-foreground text-xs">Inactive</Badge>}
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{p.assignedDoctor}</span>
-                  <span>{p.dateJoined}</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                </motion.div>
+              ))}
+              {filtered.length === 0 && (
+                <div className="col-span-full text-center py-12 text-muted-foreground">No patients found.</div>
+              )}
+            </div>
+          )}
         </div>
       </PageTransition>
     </DashboardLayout>

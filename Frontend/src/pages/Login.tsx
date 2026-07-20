@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import AppLogo from "@/components/AppLogo";
 import FloatingLeaves from "@/components/FloatingLeaves";
 import PageTransition from "@/components/PageTransition";
-import { toast } from "sonner";
+import { useAuth } from "../hooks/useAuth";
 
 const roleConfig: Record<string, { label: string; icon: any; color: string }> = {
   admin: { label: "Admin", icon: ShieldCheck, color: "from-primary to-primary/80" },
@@ -19,19 +19,23 @@ const roleConfig: Record<string, { label: string; icon: any; color: string }> = 
 const Login = () => {
   const { role = "patient" } = useParams();
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  
   const config = roleConfig[role] || roleConfig.patient;
   const Icon = config.icon;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Login successful!", { description: `Welcome to ${config.label} Dashboard` });
+    const success = await login(email, password);
+    setLoading(false);
+    if (success) {
       navigate(`/${role}/home`);
-    }, 1200);
+    }
   };
 
   return (
@@ -81,12 +85,24 @@ const Login = () => {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm"><Mail size={14} /> Email Address</Label>
-                  <Input type="email" placeholder="you@example.com" required />
+                  <Input 
+                    type="email" 
+                    placeholder="you@example.com" 
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 text-sm"><Lock size={14} /> Password</Label>
                   <div className="relative">
-                    <Input type={showPassword ? "text" : "password"} placeholder="••••••••" required />
+                    <Input 
+                      type={showPassword ? "text" : "password"} 
+                      placeholder="••••••••" 
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      required 
+                    />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}

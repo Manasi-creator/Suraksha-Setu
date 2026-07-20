@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AnimatePresence } from "framer-motion";
+import { AuthProvider } from "./hooks/useAuth";
 
 // Auth pages
 import Landing from "./pages/Landing";
@@ -26,7 +27,9 @@ import DoctorProfile from "./pages/doctor/DoctorProfile";
 import DoctorPatients from "./pages/doctor/DoctorPatients";
 import PatientDetail from "./pages/doctor/PatientDetail";
 import DoctorSettings from "./pages/doctor/DoctorSettings";
-import { DoctorHistory, DoctorReports, DoctorAlerts } from "./pages/doctor/DoctorPlaceholders";
+import DoctorHistory from "./pages/doctor/DoctorHistory";
+import DoctorReports from "./pages/doctor/DoctorReports";
+import DoctorAlerts from "./pages/doctor/DoctorAlerts";
 
 // Admin pages
 import AdminHome from "./pages/admin/AdminHome";
@@ -35,7 +38,7 @@ import AdminMedicines from "./pages/admin/AdminMedicines";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminFeedback from "./pages/admin/AdminFeedback";
 import AdminSystemSettings from "./pages/admin/AdminSystemSettings";
-import { AdminLogs } from "./pages/admin/AdminPlaceholders";
+import AdminLogs from "./pages/admin/AdminLogs";
 
 import NotFound from "./pages/NotFound";
 
@@ -43,50 +46,52 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login/:role" element={<Login />} />
-            <Route path="/signup/:role" element={<Signup />} />
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AnimatePresence mode="wait">
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login/:role" element={<Login />} />
+              <Route path="/signup/:role" element={<Signup />} />
 
-            {/* Patient routes */}
-            <Route path="/patient/home" element={<PatientHome />} />
-            <Route path="/patient/profile" element={<PatientProfile />} />
-            <Route path="/patient/medications" element={<PatientMedications />} />
-            <Route path="/patient/chat" element={<PatientChat />} />
-            <Route path="/patient/alerts" element={<PatientAlerts />} />
-            <Route path="/patient/history" element={<PatientHistory />} />
-            <Route path="/patient/reports" element={<PatientReports />} />
-            <Route path="/patient/settings" element={<PatientSettings />} />
+              {/* Patient routes */}
+              <Route path="/patient/home" element={<PatientHome />} />
+              <Route path="/patient/profile" element={<PatientProfile />} />
+              <Route path="/patient/medications" element={<PatientMedications />} />
+              <Route path="/patient/chat" element={<PatientChat />} />
+              <Route path="/patient/alerts" element={<PatientAlerts />} />
+              <Route path="/patient/history" element={<PatientHistory />} />
+              <Route path="/patient/reports" element={<PatientReports />} />
+              <Route path="/patient/settings" element={<PatientSettings />} />
 
-            {/* Doctor routes */}
-            <Route path="/doctor/home" element={<DoctorHome />} />
-            <Route path="/doctor/profile" element={<DoctorProfile />} />
-            <Route path="/doctor/patients" element={<DoctorPatients />} />
-            <Route path="/doctor/patients/:patientId" element={<PatientDetail />} />
-            <Route path="/doctor/history" element={<DoctorHistory />} />
-            <Route path="/doctor/reports" element={<DoctorReports />} />
-            <Route path="/doctor/alerts" element={<DoctorAlerts />} />
-            <Route path="/doctor/settings" element={<DoctorSettings />} />
+              {/* Doctor routes */}
+              <Route path="/doctor/home" element={<DoctorHome />} />
+              <Route path="/doctor/profile" element={<DoctorProfile />} />
+              <Route path="/doctor/patients" element={<DoctorPatients />} />
+              <Route path="/doctor/patients/:patientId" element={<PatientDetail />} />
+              <Route path="/doctor/history" element={<DoctorHistory />} />
+              <Route path="/doctor/reports" element={<DoctorReports />} />
+              <Route path="/doctor/alerts" element={<DoctorAlerts />} />
+              <Route path="/doctor/settings" element={<DoctorSettings />} />
 
-            {/* Admin routes */}
-            <Route path="/admin/home" element={<AdminHome />} />
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/medicines" element={<AdminMedicines />} />
-            <Route path="/admin/logs" element={<AdminLogs />} />
-            <Route path="/admin/analytics" element={<AdminAnalytics />} />
-            <Route path="/admin/feedback" element={<AdminFeedback />} />
-            <Route path="/admin/settings" element={<AdminSystemSettings />} />
+              {/* Admin routes */}
+              <Route path="/admin/home" element={<AdminHome />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/medicines" element={<AdminMedicines />} />
+              <Route path="/admin/logs" element={<AdminLogs />} />
+              <Route path="/admin/analytics" element={<AdminAnalytics />} />
+              <Route path="/admin/feedback" element={<AdminFeedback />} />
+              <Route path="/admin/settings" element={<AdminSystemSettings />} />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AnimatePresence>
-      </BrowserRouter>
-    </TooltipProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AnimatePresence>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
