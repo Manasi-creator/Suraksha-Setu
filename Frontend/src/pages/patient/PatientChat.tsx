@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 import { MessageCircle, Send, Mic, Leaf, Shield, AlertTriangle, XCircle, Volume2, VolumeX, Globe, Link as LinkIcon } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -10,6 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+
+interface PrakritiResult {
+  type: "Vata" | "Pitta" | "Kapha";
+  confidence: number;
+  diabetesRisk: "Low" | "Medium" | "High";
+}
 
 interface Message {
   id: number;
@@ -33,38 +41,228 @@ const severityConfig = {
   avoid: { label: "Avoid", icon: XCircle, color: "bg-avoid/10 text-avoid border-avoid/30" },
 };
 
-const quickPrompts = [
-  "Check my current medicines",
-  "Is Karela juice safe for me?",
-  "What should I avoid with Metformin?",
-];
+const prakritiBannerColors: Record<string, string> = {
+  Vata: "bg-blue-50 border-blue-200 text-blue-800",
+  Pitta: "bg-orange-50 border-orange-200 text-orange-800",
+  Kapha: "bg-primary/5 border-primary/20 text-primary",
+};
 
-const initialMessages: Message[] = [
-  { id: 1, from: "ai", text: "Hello Arjun! I'm your AI health assistant. I can help you understand potential interactions between your Ayurvedic and modern medicines. What would you like to know?", severity: "safe" },
-];
+const langMap: Record<string, string> = { en: "en-IN", hi: "hi-IN", mr: "mr-IN" };
+const modernKeywords = ["metformin", "glipizide", "glibenclamide", "insulin", "sitagliptin", "empagliflozin", "vildagliptin", "pioglitazone"];
+const ayurvedicKeywords = ["karela", "methi", "jamun", "gurmar", "neem", "vijaysar", "madhunashini", "chandraprabha", "triphala", "vasanta"];
+
+const formatAnalysisMessage = (result: AiAnalysisResponse) => {
+  const severity = result.verdict === "Unsafe" ? "avoid" : result.verdict === "Use with Caution" ? "caution" : "safe";
+  const reasons = result.reasons.length ? result.reasons.slice(0, 2).join("\n• ") : "No extra reasons were provided.";
+  const recommendations = result.recommendations.length ? result.recommendations.slice(0, 2).join("\n• ") : "Please ask a doctor if you are unsure.";
+  return [
+    result.summary,
+    `Confidence: ${result.confidence}%`,
+    `Risk level: ${result.riskLevel}`,
+    `Final verdict: ${result.verdict}`,
+    `Reasons:\n• ${reasons}`,
+    `Recommendations:\n• ${recommendations}`,
+  ].join("\n\n");
+};
+
+const extractMedicineName = (text: string, keywords: string[]) => {
+  const lower = text.toLowerCase();
+  const hit = keywords.find((keyword) => lower.includes(keyword));
+  return hit ? hit.charAt(0).toUpperCase() + hit.slice(1) : "";
+};
 
 const PatientChat = () => {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const { user, fetchWithAuth } = useAuth();
+  const [prakriti, setPrakriti] = useState<PrakritiResult | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [lang, setLang] = useState("en");
+  const recognitionRef = useRef<any>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  const sendMessage = (text: string) => {
-    if (!text.trim()) return;
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("prakritiResult");
+      if (stored) setPrakriti(JSON.parse(stored));
+    } catch {
+      // ignore malformed local storage data
+    }
+  }, []);
+
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([
+        {
+          id: 1,
+          from: "ai",
+          text: `Hello ${user?.name || "Arjun"}! I'm your AI health assistant. I can help you understand potential interactions between your Ayurvedic and modern medicines. What would you like to know?`,
+          severity: "safe",
+        },
+      ]);
+    }
+  }, [messages.length, user?.name]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const quickPrompts = prakriti
+    ? [
+        `Is Karela juice safe for my ${prakriti.type} Prakriti?`,
+        "Can I take Metformin with Methi seeds?",
+        `What should a ${prakriti.type} person avoid?`,
+      ]
+    : [
+        "Check my current medicines",
+        "Is Karela juice safe for me?",
+        "What should I avoid with Metformin?",
+      ];
+
+  const speak = (text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langMap[lang];
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window !== "undefined") {
+      window.speechSynthesis.cancel();
+    }
+    setSpeaking(false);
+  };
+
+  const toggleListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = langMap[lang];
+    recognition.interimResults = true;
+    recognition.continuous = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results).map((result: any) => result[0].transcript).join("");
+      setInput(transcript);
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => {
+      setListening(false);
+      toast.error("Could not recognise speech. Try again.");
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+    toast.info("Listening...");
+
+    setTimeout(() => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    }, 8000);
+  };
+
+  const handleSaveAlert = async (messageText: string, severityLabel: "safe" | "caution" | "avoid") => {
+    if (!user) return;
+    try {
+      const res = await fetchWithAuth(`/api/alerts/patient/${user.id}`, {
+        method: "POST",
+        body: JSON.stringify({
+          severity: severityLabel === "avoid" ? "High Risk" : severityLabel === "caution" ? "Caution" : "Info",
+          message: messageText,
+          sentBy: "AI System",
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Alert saved to your profile!");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.message || "Failed to save alert");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save alert");
+    }
+  };
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || !user) return;
+
     const userMsg: Message = { id: Date.now(), from: "user", text };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    // Simulate AI response
-    setTimeout(() => {
-      const severity = text.toLowerCase().includes("karela") ? "caution" : text.toLowerCase().includes("avoid") ? "avoid" : "safe";
-      const responses: Record<string, string> = {
-        safe: "Based on your current medication profile, this combination appears safe. No significant interactions were found. Continue as prescribed and monitor for any unusual symptoms.",
-        caution: "⚠️ Karela (bitter gourd) juice can lower blood sugar levels significantly. Combined with Metformin, this may increase the risk of hypoglycemia. Use with caution and monitor your blood sugar more frequently.",
-        avoid: "🚫 This combination has a high risk of adverse interaction. Glimepiride combined with certain herbal supplements can cause dangerous drops in blood sugar. Please consult your doctor before making any changes.",
-      };
-      const aiMsg: Message = { id: Date.now() + 1, from: "ai", text: responses[severity], severity };
-      setMessages((prev) => [...prev, aiMsg]);
-    }, 1500);
+    try {
+      let modernMedicine = extractMedicineName(text, modernKeywords);
+      let ayurvedicMedicine = extractMedicineName(text, ayurvedicKeywords);
+
+      if (!modernMedicine || !ayurvedicMedicine) {
+        const medsRes = await fetchWithAuth(`/api/medications/patient/${user.id}`);
+        if (medsRes.ok) {
+          const medsData = await medsRes.json();
+          const modernMeds = medsData?.modern || [];
+          const ayurvedicMeds = medsData?.ayurvedic || [];
+          if (!modernMedicine && modernMeds[0]?.medicine) {
+            modernMedicine = modernMeds[0].medicine;
+          }
+          if (!ayurvedicMedicine && ayurvedicMeds[0]?.medicine) {
+            ayurvedicMedicine = ayurvedicMeds[0].medicine;
+          }
+        }
+      }
+
+      if (!modernMedicine || !ayurvedicMedicine) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            from: "ai",
+            text: "I need a modern medicine and an Ayurvedic medicine to analyze the interaction. You can mention them directly or check your current medications first.",
+            severity: "safe",
+          },
+        ]);
+        return;
+      }
+
+      const res = await fetchWithAuth("/api/ai/analyze", {
+        method: "POST",
+        body: JSON.stringify({
+          modernMedicine,
+          ayurvedicMedicine,
+          context: text,
+        }),
+      });
+
+      const analysis = await res.json();
+      if (!res.ok) {
+        throw new Error(analysis.message || "AI analysis failed");
+      }
+
+      const aiText = formatAnalysisMessage(analysis as AiAnalysisResponse);
+      const severity = analysis.verdict === "Unsafe" ? "avoid" : analysis.verdict === "Use with Caution" ? "caution" : "safe";
+      setMessages((prev) => [...prev, { id: Date.now() + 1, from: "ai", text: aiText, severity }]);
+      speak(analysis.summary || "Here is your interaction summary.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Error communicating with the AI checker backend");
+    }
   };
 
   return (
@@ -142,8 +340,8 @@ const PatientChat = () => {
                     </Badge>
                   )}
                   <p className="text-sm leading-relaxed">{msg.text}</p>
-                  {msg.severity === "avoid" && msg.from === "ai" && (
-                    <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={() => toast.success("Alert saved!")}>
+                  {(msg.severity === "avoid" || msg.severity === "caution") && msg.from === "ai" && (
+                    <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={() => handleSaveAlert(msg.text, msg.severity)}>
                       Save as Alert
                     </Button>
                   )}
